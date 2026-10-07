@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import Image from 'next/image';
+import { HeroGraphic } from './HeroGraphic';
 import { BookOpen, Sparkles, CheckCircle2, ShieldCheck, ArrowRight, Lightbulb } from 'lucide-react';
 
 interface LearningOutcomesSectionProps {
@@ -124,20 +124,8 @@ export function LearningOutcomesSection({
             </div>
           </div>
 
-          <div className="lg:col-span-5 relative h-48 sm:h-56 lg:h-64 rounded-xl overflow-hidden border border-white/10 shadow-lg">
-            <Image
-              src="/images/hero.jpg"
-              alt="Masa 5 Fikir Ders Planlama Görseli"
-              fill
-              className="object-cover"
-              priority
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent flex items-end p-4">
-              <span className="text-xs text-white/90 font-medium">
-                Sınıf İçi İstasyonlar & 5E Metodolojisi
-              </span>
-            </div>
+          <div className="lg:col-span-5 w-full">
+            <HeroGraphic />
           </div>
         </div>
       </div>
