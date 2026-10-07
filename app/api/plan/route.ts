@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
     const ai = createAiClient();
 
     const userPrompt = `
-Lütfen aşağıdaki öğrenme çıktılarını ve ders bilgilerini incele. Yalnızca verilen metinle yetinme; konuyu pedagojik ve bilimsel olarak araştırarak derinleştir. 5E modeline uygun, tam 40 dakikalık özgün bir günlük ders planı ve "Masa 5  5 fikir" istasyonlarını içeren plan hazırla.
+Lütfen aşağıdaki öğrenme çıktılarını ve ders bilgilerini incele. Yalnızca verilen metinle yetinme; konuyu pedagojik ve bilimsel olarak araştırarak derinleştir. 5E modeline uygun, tam 40 dakikalık özgün bir günlük ders planı ve "Masa 5 Fikir" istasyonlarını içeren plan hazırla.
 
 ÖĞRETMEN TARAFINDAN GİRİLEN BİLGİLER:
 - Öğrenme Çıktıları:

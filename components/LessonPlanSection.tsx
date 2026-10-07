@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { LessonPlan } from '@/types/plan';
 import { TimeChart } from './TimeChart';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Clock,
   BookOpen,
@@ -18,7 +19,9 @@ import {
   FileDown,
   AlertCircle,
   HelpCircle,
-  ListOrdered,
+  Bookmark,
+  BookmarkCheck,
+  Loader2,
 } from 'lucide-react';
 
 interface LessonPlanSectionProps {
@@ -74,6 +77,23 @@ export function LessonPlanSection({
   onBackToOutcomes,
 }: LessonPlanSectionProps) {
   const [copied, setCopied] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const { user, saveCurrentPlan, openAuthModal } = useAuth();
+
+  const handleSavePlan = async () => {
+    if (!user) {
+      openAuthModal('login');
+      return;
+    }
+    setIsSaving(true);
+    const res = await saveCurrentPlan(plan);
+    setIsSaving(false);
+    if (res.success) {
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    }
+  };
 
   const copyToClipboard = () => {
     let text = `# ${plan.lessonName || 'Ders Planı'} - ${plan.subjectTopic || ''}\n`;
@@ -87,7 +107,7 @@ export function LessonPlanSection({
       text += `Öğretmen Rolü: ${s.teacherAction}\n`;
       text += `Öğrenci Rolü: ${s.studentAction}\n`;
     });
-    text += `\n## Masa 5  5 Fikir:\n`;
+    text += `\n## Masa 5 Fikir:\n`;
     plan.table5Ideas.forEach((t) => {
       text += `\n- ${t.title} [${t.targetStyle}]: ${t.description}\n`;
     });
@@ -117,7 +137,34 @@ export function LessonPlanSection({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={handleSavePlan}
+            disabled={isSaving}
+            className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+              saveSuccess
+                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                : 'text-slate-700 bg-slate-100 hover:bg-slate-200'
+            }`}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Kaydediliyor...</span>
+              </>
+            ) : saveSuccess ? (
+              <>
+                <BookmarkCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Hesaba Kaydedildi</span>
+              </>
+            ) : (
+              <>
+                <Bookmark className="w-3.5 h-3.5 text-slate-600" />
+                <span>Planı Kaydet</span>
+              </>
+            )}
+          </button>
+
           <button
             onClick={copyToClipboard}
             className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
@@ -327,12 +374,12 @@ export function LessonPlanSection({
         </div>
       </div>
 
-      {/* "Masa 5  5 Fikir" Feature Section */}
+      {/* "Masa 5 Fikir" Feature Section */}
       <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 text-white rounded-2xl p-6 sm:p-8 shadow-lg space-y-6">
         <div>
           <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-1">
             <Sparkles className="w-4 h-4" />
-            <span>Masa 5  5 Fikir İstasyon Rehberi</span>
+            <span>Masa 5 Fikir İstasyon Rehberi</span>
           </div>
           <h3 className="text-xl font-bold text-white">
             Sınıfta Uygulanabilecek 5 Yaratıcı Masa / İstasyon Fikri

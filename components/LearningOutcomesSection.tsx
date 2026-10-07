@@ -116,7 +116,7 @@ export function LearningOutcomesSection({
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" /> 5E Pedagoji Modeli
               </span>
               <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Masa 5  5 Fikir İstasyonları
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Masa 5 Fikir İstasyonları
               </span>
               <span className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Grafikli PDF Çıktısı
@@ -127,7 +127,7 @@ export function LearningOutcomesSection({
           <div className="lg:col-span-5 relative h-48 sm:h-56 lg:h-64 rounded-xl overflow-hidden border border-white/10 shadow-lg">
             <Image
               src="/images/hero.jpg"
-              alt="Masa 5  5 Fikir Ders Planlama Görseli"
+              alt="Masa 5 Fikir Ders Planlama Görseli"
               fill
               className="object-cover"
               priority

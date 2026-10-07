@@ -1,14 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
+import { AuthProvider } from '@/contexts/AuthContext';
 import { Header } from '@/components/Header';
+import { AuthModal } from '@/components/AuthModal';
+import { SavedPlansModal } from '@/components/SavedPlansModal';
 import { LearningOutcomesSection } from '@/components/LearningOutcomesSection';
 import { LessonPlanSection } from '@/components/LessonPlanSection';
 import { PdfReportSection } from '@/components/PdfReportSection';
 import { LessonPlan } from '@/types/plan';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
-export default function HomePage() {
+function HomeContent() {
   const [activeTab, setActiveTab] = useState<'outcomes' | 'plan' | 'pdf'>('outcomes');
   const [outcomesText, setOutcomesText] = useState<string>('');
   const [lessonName, setLessonName] = useState<string>('');
@@ -89,11 +92,20 @@ export default function HomePage() {
   const handlePdfClick = () => {
     if (plan) {
       setActiveTab('pdf');
-      // If already on pdf tab, trigger print
-      if (activeTab === 'pdf') {
-        window.print();
-      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+  };
+
+  const handleLoadSavedPlan = (savedPlan: LessonPlan) => {
+    setPlan(savedPlan);
+    setLessonName(savedPlan.lessonName || '');
+    setGradeLevel(savedPlan.gradeLevel || '');
+    setSubjectTopic(savedPlan.subjectTopic || '');
+    if (savedPlan.learningOutcomes) {
+      setOutcomesText(savedPlan.learningOutcomes.join('\n'));
+    }
+    setActiveTab('plan');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -167,21 +179,34 @@ export default function HomePage() {
         </main>
       </div>
 
+      {/* Auth Modals */}
+      <AuthModal />
+      <SavedPlansModal onLoadPlan={handleLoadSavedPlan} />
+
       {/* Clean Footer (No-print) */}
       <footer className="no-print mt-12 border-t border-slate-200 bg-white py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-800">Masa 5  5 fikir</span>
+            <span className="font-semibold text-slate-800">Masa 5 Fikir</span>
             <span aria-hidden="true">·</span>
             <span>5E Modeli ile 40 Dakikalık Ders Planı ve PDF Raporlama</span>
           </div>
           <div className="flex items-center gap-4 text-slate-600">
-            <span>Türkiye Yüzyılı Maarif Modeli Uyumlu</span>
+            <span>Vercel Postgres & Bulut Uyumlu</span>
             <span aria-hidden="true">·</span>
-            <span>Kişisel Veri İçermez</span>
+            <span>Öğrenci Kişisel Verisi Barındırmaz</span>
           </div>
         </div>
       </footer>
     </div>
   );
 }
+
+export default function HomePage() {
+  return (
+    <AuthProvider>
+      <HomeContent />
+    </AuthProvider>
+  );
+}
+

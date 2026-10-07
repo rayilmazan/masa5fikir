@@ -18,7 +18,7 @@ TEMEL İLKELER VE KURALLAR:
    - 5. Değerlendirme (Evaluate / Biçimlendirici Ölçme): Yaklaşık 5 dakika. Süreç ve sonuç odaklı biçimlendirici değerlendirme, öz/akran değerlendirme veya çıkış bileti (exit ticket).
    *NOT: Bu 5 aşamanın dakika toplamı kesinlikle 40 dakika etmelidir (örn: 6 + 11 + 9 + 9 + 5 = 40 dk).*
 
-4. "MASA 5 - 5 FİKİR" KONSEPTİ:
+4. "MASA 5 FİKİR" KONSEPTİ:
    Her ders planına özel, sınıfta/masalarda veya istasyonlarda uygulanabilecek 5 adet yaratıcı, pratik ve yenilikçi pedagojik fikir ("Masa 1", "Masa 2", "Masa 3", "Masa 4", "Masa 5") üret. Bu fikirler farklı zeka alanlarını, duyusal kanalları, teknolojik araçları veya somut materyalleri harekete geçirmelidir.
 
 5. RAPOR VE DİL:

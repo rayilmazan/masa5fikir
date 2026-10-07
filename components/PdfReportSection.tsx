@@ -190,7 +190,7 @@ export function PdfReportSection({ plan, onBackToPlan }: PdfReportSectionProps) 
               <div><strong>Toplam Süre:</strong> 40 Dakika</div>
               <div><strong>Kademe:</strong> {plan.gradeLevel}</div>
               <div className="text-[11px] text-emerald-700 font-sans font-semibold">
-                Masa 5  5 Fikir Modeli
+                Masa 5 Fikir Modeli
               </div>
             </div>
           </div>
@@ -294,10 +294,10 @@ export function PdfReportSection({ plan, onBackToPlan }: PdfReportSectionProps) 
           </table>
         </div>
 
-        {/* Masa 5  5 Fikir Section in PDF */}
+        {/* Masa 5 Fikir Section in PDF */}
         <div className="page-break-inside-avoid">
           <div className="bg-slate-100 px-3 py-1.5 font-bold text-xs uppercase tracking-wider text-slate-800 border-l-4 border-purple-600">
-            Masa 5  5 Fikir: Sınıf İçi İstasyon & Masa Stratejileri
+            Masa 5 Fikir: Sınıf İçi İstasyon & Masa Stratejileri
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 p-3 border border-slate-200 border-t-0 bg-white">
             {plan.table5Ideas.map((table) => (
