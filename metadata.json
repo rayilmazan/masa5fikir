@@ -1,0 +1,6 @@
+{
+  "name": "Masa 5  5 fikir",
+  "description": "Öğrenme çıktılarına dayalı 5E modeli ile 40 dakikalık özgün ders planı ve grafik destekli PDF raporu hazırlayan öğretmen asistanı.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
