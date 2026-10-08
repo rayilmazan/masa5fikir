@@ -4,7 +4,7 @@ import { GEMINI_MODEL } from "@/lib/constants";
 import { TALIMAT } from "@/lib/talimat";
 import { LessonPlan } from "@/types/plan";
 
-// Fallback model if primary model's daily quota is exhausted (429 RESOURCE_EXHAUSTED)
+// Fallback model if primary model experiences 503 high demand or quota exhaustion
 const FALLBACK_MODEL = "gemini-3.1-flash-lite";
 
 function createAiClient() {
@@ -130,6 +130,57 @@ const RESPONSE_SCHEMA = {
   ],
 };
 
+async function generatePlanWithResilience(ai: GoogleGenAI, prompt: string) {
+  const modelChain = [GEMINI_MODEL, FALLBACK_MODEL];
+  let lastError: unknown = null;
+
+  for (let i = 0; i < modelChain.length; i++) {
+    const currentModel = modelChain[i];
+
+    // Try up to 2 times for transient errors (e.g. 503 high demand spike)
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          model: currentModel,
+          contents: prompt,
+          config: {
+            systemInstruction: TALIMAT,
+            responseMimeType: "application/json",
+            responseSchema: RESPONSE_SCHEMA,
+          },
+        });
+        return { response, modelUsed: currentModel };
+      } catch (err: unknown) {
+        lastError = err;
+        const errStr = String(err);
+        const isTemporary =
+          errStr.includes("503") ||
+          errStr.includes("UNAVAILABLE") ||
+          errStr.includes("high demand") ||
+          errStr.includes("temporarily") ||
+          errStr.includes("429") ||
+          errStr.includes("RESOURCE_EXHAUSTED");
+
+        console.warn(
+          `[Masa 5 Fikir] Model ${currentModel} (deneme ${attempt}) hata:`,
+          errStr.substring(0, 150)
+        );
+
+        if (attempt === 1 && isTemporary) {
+          // Brief pause before retry attempt
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          continue;
+        }
+
+        // On attempt 2 or non-retryable error, proceed to fallback model
+        break;
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -161,46 +212,7 @@ LÜTFEN DİKKAT:
 - Çıktıyı eksiksiz JSON formatında üret. Asla öğrenci adı veya okul numarası gibi kişisel veriler içermesin.
 `;
 
-    let response;
-    let modelUsed = GEMINI_MODEL;
-
-    try {
-      // First try the primary model constant (gemini-3.8-flash)
-      response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: userPrompt,
-        config: {
-          systemInstruction: TALIMAT,
-          responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
-        },
-      });
-    } catch (primaryErr: unknown) {
-      const errStr = String(primaryErr);
-      const isQuotaError =
-        errStr.includes("429") ||
-        errStr.includes("RESOURCE_EXHAUSTED") ||
-        errStr.includes("quota") ||
-        errStr.includes("Quota exceeded");
-
-      if (isQuotaError) {
-        console.warn(
-          `Primary model ${GEMINI_MODEL} quota exhausted, falling back to ${FALLBACK_MODEL}...`
-        );
-        modelUsed = FALLBACK_MODEL;
-        response = await ai.models.generateContent({
-          model: FALLBACK_MODEL,
-          contents: userPrompt,
-          config: {
-            systemInstruction: TALIMAT,
-            responseMimeType: "application/json",
-            responseSchema: RESPONSE_SCHEMA,
-          },
-        });
-      } else {
-        throw primaryErr;
-      }
-    }
+    const { response, modelUsed } = await generatePlanWithResilience(ai, userPrompt);
 
     const rawText = response?.text || "{}";
     const planData: LessonPlan = JSON.parse(rawText);
@@ -212,20 +224,28 @@ LÜTFEN DİKKAT:
       _modelUsed: modelUsed,
     });
   } catch (error: unknown) {
-    console.error("Plan generation error:", error);
-    let errMessage = "Ders planı oluşturulurken bir hata oluştu.";
-    if (error instanceof Error) {
-      if (
-        error.message.includes("429") ||
-        error.message.includes("RESOURCE_EXHAUSTED") ||
-        error.message.includes("Quota")
-      ) {
-        errMessage =
-          "Gemini API kullanım kotası aşıldı. Lütfen birkaç dakika sonra tekrar deneyiniz veya Google AI Studio anahtarınızı kontrol ediniz.";
-      } else {
-        errMessage = error.message;
-      }
+    console.error("Plan generation final error:", error);
+    let errMessage = "Ders planı oluşturulurken bir hata oluştu. Lütfen tekrar deneyiniz.";
+    const errStr = error instanceof Error ? error.message : String(error);
+
+    if (
+      errStr.includes("503") ||
+      errStr.includes("UNAVAILABLE") ||
+      errStr.includes("high demand")
+    ) {
+      errMessage =
+        "Yapay zekâ model sunucularında anlık yoğunluk yaşanıyor (503). Lütfen 2-3 saniye sonra tekrar deneyiniz.";
+    } else if (
+      errStr.includes("429") ||
+      errStr.includes("RESOURCE_EXHAUSTED") ||
+      errStr.includes("Quota")
+    ) {
+      errMessage =
+        "API kullanım kotası anlık olarak doldu. Lütfen kısa bir süre sonra tekrar deneyiniz.";
+    } else if (error instanceof Error && !error.message.startsWith("{")) {
+      errMessage = error.message;
     }
-    return NextResponse.json({ error: errMessage }, { status: 200 }); // Return status 200 with error property so reverse proxies never serve HTML error pages!
+
+    return NextResponse.json({ error: errMessage }, { status: 200 });
   }
 }

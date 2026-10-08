@@ -59,7 +59,15 @@ function HomeContent() {
       const data = await response.json();
 
       if (!response.ok || data.error) {
-        throw new Error(data.error || 'Ders planı oluşturulurken bir hata oluştu.');
+        let msg = data.error || 'Ders planı oluşturulurken bir hata oluştu.';
+        if (typeof msg === 'string') {
+          if (msg.includes('503') || msg.includes('high demand') || msg.includes('UNAVAILABLE')) {
+            msg = 'Yapay zekâ sunucularında anlık yoğunluk yaşanıyor. Lütfen birkaç saniye sonra tekrar "Plan Oluştur" butonuna basınız.';
+          } else if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) {
+            msg = 'API istek kotası anlık olarak doldu. Lütfen kısa bir süre sonra tekrar deneyiniz.';
+          }
+        }
+        throw new Error(msg);
       }
 
       const generatedPlan: LessonPlan = data;

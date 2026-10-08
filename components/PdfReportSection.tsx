@@ -3,7 +3,7 @@
 import React, { useRef, useState } from 'react';
 import { LessonPlan } from '@/types/plan';
 import { TimeChart } from './TimeChart';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import { jsPDF } from 'jspdf';
 import {
   FileDown,
@@ -77,7 +77,7 @@ export function PdfReportSection({ plan, onBackToPlan }: PdfReportSectionProps) 
         .trim()
         .replace(/[^a-zA-Z0-9çğışöüÇĞİŞÖÜ_-]/g, '_');
       
-      pdf.save(`Masa5_5Fikir_${safeName}_5E_Plani.pdf`);
+      pdf.save(`Masa5Fikir_${safeName}_5E_Plani.pdf`);
       setDownloadSuccess(true);
       setTimeout(() => setDownloadSuccess(false), 4000);
     } catch (error) {
