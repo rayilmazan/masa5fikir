@@ -4,8 +4,11 @@ import { GEMINI_MODEL } from "@/lib/constants";
 import { TALIMAT } from "@/lib/talimat";
 import { LessonPlan } from "@/types/plan";
 
-// Fallback model if primary model experiences 503 high demand or quota exhaustion
+// Fallback Google model if primary experiences 503 high demand or quota exhaustion
 const FALLBACK_MODEL = "gemini-3.1-flash-lite";
+
+// EVREN LLM API endpoint (Savunma Sanayii Başkanlığı - evren.ssyz.org.tr)
+const EVREN_API_URL = "https://evren-llmapi.ssyz.org.tr/v1/chat/completions";
 
 function createAiClient() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -130,14 +133,58 @@ const RESPONSE_SCHEMA = {
   ],
 };
 
-async function generatePlanWithResilience(ai: GoogleGenAI, prompt: string) {
+// Generates plan using Savunma Sanayii EVREN LLM API (OpenAI-compatible)
+async function generateWithEvren(apiKey: string, prompt: string): Promise<LessonPlan> {
+  const model = process.env.EVREN_MODEL || "auto";
+
+  const res = await fetch(EVREN_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey.trim()}`,
+    },
+    body: JSON.stringify({
+      model: model,
+      messages: [
+        {
+          role: "system",
+          content: `${TALIMAT}\n\nÖNEMLİ: Çıktıyı kesinlikle geçerli bir JSON objesi olarak ver. Markdown kod bloğu (örn: \`\`\`json) kullanabilirsin fakat JSON yapısı tam ve eksiksiz olmalıdır.`,
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.7,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`EVREN API Hatası (${res.status}): ${errorText}`);
+  }
+
+  const data = await res.json();
+  const rawContent = data.choices?.[0]?.message?.content || "{}";
+  const sanitized = rawContent
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+
+  return JSON.parse(sanitized);
+}
+
+// Generates plan using Google GenAI SDK with multi-model fallback (gemini-3.8-flash -> gemini-3.1-flash-lite)
+async function generateWithGemini(prompt: string): Promise<{ plan: LessonPlan; modelUsed: string }> {
+  const ai = createAiClient();
   const modelChain = [GEMINI_MODEL, FALLBACK_MODEL];
   let lastError: unknown = null;
 
   for (let i = 0; i < modelChain.length; i++) {
     const currentModel = modelChain[i];
 
-    // Try up to 2 times for transient errors (e.g. 503 high demand spike)
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const response = await ai.models.generateContent({
@@ -149,7 +196,10 @@ async function generatePlanWithResilience(ai: GoogleGenAI, prompt: string) {
             responseSchema: RESPONSE_SCHEMA,
           },
         });
-        return { response, modelUsed: currentModel };
+
+        const rawText = response?.text || "{}";
+        const parsed: LessonPlan = JSON.parse(rawText);
+        return { plan: parsed, modelUsed: currentModel };
       } catch (err: unknown) {
         lastError = err;
         const errStr = String(err);
@@ -161,18 +211,12 @@ async function generatePlanWithResilience(ai: GoogleGenAI, prompt: string) {
           errStr.includes("429") ||
           errStr.includes("RESOURCE_EXHAUSTED");
 
-        console.warn(
-          `[Masa 5 Fikir] Model ${currentModel} (deneme ${attempt}) hata:`,
-          errStr.substring(0, 150)
-        );
+        console.warn(`[Masa 5 Fikir] ${currentModel} (deneme ${attempt}) hatası:`, errStr.substring(0, 120));
 
         if (attempt === 1 && isTemporary) {
-          // Brief pause before retry attempt
-          await new Promise((resolve) => setTimeout(resolve, 800));
+          await new Promise((r) => setTimeout(r, 800));
           continue;
         }
-
-        // On attempt 2 or non-retryable error, proceed to fallback model
         break;
       }
     }
@@ -193,8 +237,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const ai = createAiClient();
-
     const userPrompt = `
 Lütfen aşağıdaki öğrenme çıktılarını ve ders bilgilerini incele. Yalnızca verilen metinle yetinme; konuyu pedagojik ve bilimsel olarak araştırarak derinleştir. 5E modeline uygun, tam 40 dakikalık özgün bir günlük ders planı ve "Masa 5 Fikir" istasyonlarını içeren plan hazırla.
 
@@ -212,15 +254,48 @@ LÜTFEN DİKKAT:
 - Çıktıyı eksiksiz JSON formatında üret. Asla öğrenci adı veya okul numarası gibi kişisel veriler içermesin.
 `;
 
-    const { response, modelUsed } = await generatePlanWithResilience(ai, userPrompt);
+    // Detect if EVREN API key is configured
+    // Can be in EVREN_API_KEY, or if GEMINI_API_KEY was filled with an EVREN key
+    const evrenKey =
+      process.env.EVREN_API_KEY ||
+      (process.env.GEMINI_API_KEY?.startsWith("evren_") ||
+      process.env.GEMINI_API_KEY?.startsWith("sk-evren")
+        ? process.env.GEMINI_API_KEY
+        : undefined);
 
-    const rawText = response?.text || "{}";
-    const planData: LessonPlan = JSON.parse(rawText);
+    let planData: LessonPlan;
+    let providerUsed = "gemini";
+    let modelUsed = GEMINI_MODEL;
+
+    // Strategy 1: If EVREN API key is present, use EVREN LLM API (Savunma Sanayii Başkanlığı)
+    if (evrenKey) {
+      try {
+        console.log("[Masa 5 Fikir] EVREN LLM API (evren.ssyz.org.tr) ile plan hazırlanıyor...");
+        planData = await generateWithEvren(evrenKey, userPrompt);
+        providerUsed = "evren.ssyz.org.tr";
+        modelUsed = process.env.EVREN_MODEL || "evren-llm";
+      } catch (evrenErr) {
+        console.warn("[Masa 5 Fikir] EVREN API başarısız oldu, Google Gemini deneniyor:", evrenErr);
+        if (process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.startsWith("evren_")) {
+          const geminiResult = await generateWithGemini(userPrompt);
+          planData = geminiResult.plan;
+          modelUsed = geminiResult.modelUsed;
+        } else {
+          throw evrenErr;
+        }
+      }
+    } else {
+      // Strategy 2: Google Gemini API (gemini-3.8-flash -> gemini-3.1-flash-lite)
+      const geminiResult = await generateWithGemini(userPrompt);
+      planData = geminiResult.plan;
+      modelUsed = geminiResult.modelUsed;
+    }
 
     planData.generatedAt = new Date().toISOString();
 
     return NextResponse.json({
       ...planData,
+      _providerUsed: providerUsed,
       _modelUsed: modelUsed,
     });
   } catch (error: unknown) {
@@ -234,7 +309,7 @@ LÜTFEN DİKKAT:
       errStr.includes("high demand")
     ) {
       errMessage =
-        "Yapay zekâ model sunucularında anlık yoğunluk yaşanıyor (503). Lütfen 2-3 saniye sonra tekrar deneyiniz.";
+        "Yapay zekâ model sunucularında anlık yoğunluk yaşanıyor (503). Lütfen birkaç saniye sonra tekrar deneyiniz.";
     } else if (
       errStr.includes("429") ||
       errStr.includes("RESOURCE_EXHAUSTED") ||
@@ -242,6 +317,8 @@ LÜTFEN DİKKAT:
     ) {
       errMessage =
         "API kullanım kotası anlık olarak doldu. Lütfen kısa bir süre sonra tekrar deneyiniz.";
+    } else if (errStr.includes("EVREN API")) {
+      errMessage = `EVREN API Hatası: Lütfen evren.ssyz.org.tr üzerinden aldığınız API anahtarını ve yetkilerini kontrol ediniz. (${errStr.substring(0, 100)})`;
     } else if (error instanceof Error && !error.message.startsWith("{")) {
       errMessage = error.message;
     }
